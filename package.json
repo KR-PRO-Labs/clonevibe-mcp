@@ -1,0 +1,59 @@
+{
+  "name": "@kr-pro-labs/clonevibe-mcp",
+  "version": "1.0.0",
+  "description": "Surgical AST Feature Slicer, Zero-Dependency Chameleon Code Grafter & 1:1 Golden Parity MCP Server for Vibe Coding.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "clonevibe-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.ko.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node ./dist/index.js",
+    "dev": "tsx ./src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KR-PRO-Labs/clonevibe-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "vibe-coding",
+    "ast-slicer",
+    "code-grafting",
+    "zero-dependency",
+    "chameleon-graft",
+    "golden-parity",
+    "clean-room-synthesis"
+  ],
+  "author": "Julian Vane <m09876678@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/KR-PRO-Labs/clonevibe-mcp/issues"
+  },
+  "homepage": "https://github.com/KR-PRO-Labs/clonevibe-mcp#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

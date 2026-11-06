@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build, Typecheck & Parity Suite (pve3-debian-runner)
+    runs-on: [self-hosted, Linux, X64, debian, pve3]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        shell: bash
+        run: npm ci || npm install
+
+      - name: Strict TypeScript Check (lint)
+        shell: bash
+        run: npm run lint
+
+      - name: Run Automated Vitest Suite
+        shell: bash
+        run: npm test
+
+      - name: Build Production ESM Distribution
+        shell: bash
+        run: npm run build
