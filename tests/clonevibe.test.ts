@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'node:path';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import {
   CloneVibeEngine,
   createCloneVibeMcpServer,
@@ -177,13 +179,13 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
       'export function splitMarkdownCells(rowLine: string): string[] {',
       '  return rowLine',
       '    .trim()',
-      '    .replace(/^\||\|$/g, "")',
+      '    .replace(/^\\||\\|$/g, "")',
       '    .split("|")',
       '    .map((cell) => cell.trim());',
       '}',
       '',
       'export function parseMarkdownTableEngine(markdown: string): MarkdownAstTable {',
-      '  const lines = markdown.trim().split(/\r?\n/).filter(Boolean);',
+      '  const lines = markdown.trim().split(/\\r?\\n/).filter(Boolean);',
       '  const headers = lines[0] ? splitMarkdownCells(lines[0]) : [];',
       '  const rows = lines.slice(2).map((line) => splitMarkdownCells(line));',
       '  return cloneDeep({ id: uuidv4(), headers, rows });',
@@ -219,10 +221,10 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
 
     const tsProfile = profiler.profileTargetVibe({
       sampleCode: [
-        "export function computeDelta(inputValue: string): string {",
-        "  const normalizedValue = inputValue.trim();",
-        "  return normalizedValue;",
-        "}",
+        'export function computeDelta(inputValue: string): string {',
+        '  const normalizedValue = inputValue.trim();',
+        '  return normalizedValue;',
+        '}',
       ].join('\n'),
       explicitLanguage: 'typescript',
     });
@@ -316,6 +318,10 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
     expect(parityReport.goldenVectors.length).toBe(6);
     expect(parityReport.generatedTestSuite).toContain('RetryBackoffEngine Golden 1:1 Parity Suite');
 
+    // Verify Unicode Golden Vector preserves real UTF-8 CJK/Emoji characters (no ?? mojibake)
+    const unicodeVec = parityReport.goldenVectors.find((v) => v.id === 'vec_unicode_payload');
+    expect(JSON.stringify(unicodeVec?.inputPayload)).toContain('한글 Vibe 코딩 🚀');
+
     // Also test cross-language graft into Python
     const pyGraft = engine.synthesizeChameleonGraft({
       sliceId: slice.sliceId,
@@ -398,5 +404,128 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
     ).toThrow(/Chameleon graft not found/);
 
     expect(() => engine.invokeTool('unknown_tool_xyz', {})).toThrow(/Unknown clonevibe-mcp tool/);
+  });
+
+  it('7. Lexer-aware comment/string brace balancing, dead-import isolation, gzip stdlib, and quote escaping', () => {
+    const ingestor = new MultiSourceIngestor();
+    const extractor = new PolyglotSymbolExtractor();
+    const slicer = new AstClosureSlicer();
+    const synthesizer = new ZeroDepGraftSynthesizer();
+
+    // Python gzip stdlib check
+    expect(extractor.extractExternalImports('import gzip\nimport os\nimport requests\n', 'python')).toEqual([
+      'requests',
+    ]);
+
+    const trickyTsFile = [
+      "import { cloneDeep } from 'lodash';",
+      "import chalk from 'chalk';",
+      '',
+      '/*',
+      'export function fakeCommentedOutFunction() {',
+      '  return "should not be extracted {";',
+      '}',
+      '*/',
+      '',
+      'export function parseBraceToken(raw: string): string {',
+      '  // Unbalanced opening brace in comment: {',
+      '  /* Unbalanced closing brace in block comment: } */',
+      '  if (raw.includes("}")) {',
+      "    return \"don't panic\";",
+      '  }',
+      '  // Note: replaces legacyBannerPrinter without calling it',
+      '  const tpl = `template with unbalanced { brace`;',
+      '  void tpl;',
+      '  return cloneDeep(raw.trim());',
+      '}',
+      '',
+      'export function legacyBannerPrinter(msg: string): string {',
+      '  return chalk.green(msg);',
+      '}',
+    ].join('\n');
+
+    const snap = ingestor.ingest({
+      sourceUri: 'local:tricky-braces',
+      inlineFiles: [{ relativePath: 'src/tricky.ts', content: trickyTsFile, language: 'typescript' }],
+    });
+
+    const symbols = extractor.extractFromSnapshot(snap);
+    expect(symbols.map((s) => s.name)).toEqual(['parseBraceToken', 'legacyBannerPrinter']);
+
+    const parseNode = symbols.find((s) => s.name === 'parseBraceToken')!;
+    expect(parseNode.startLine).toBe(10);
+    expect(parseNode.endLine).toBe(20);
+    // Comment mentioning legacyBannerPrinter must NOT create a call edge
+    expect(parseNode.calls).toEqual([]);
+    // Only lodash is used by parseBraceToken; chalk is only used by legacyBannerPrinter
+    expect(parseNode.externalImports).toEqual(['lodash']);
+
+    const slice = slicer.sliceEngineGraph(snap, ['parseBraceToken']);
+    expect(slice.keptSymbols.map((s) => s.name)).toEqual(['parseBraceToken']);
+    expect(slice.externalDependencies).toEqual(['lodash']);
+    expect(slice.matchedZeroDepShims.map((s) => s.shimId)).toEqual(['shim_deep_clone']);
+
+    const graft = synthesizer.synthesizeChameleonGraft(
+      slice,
+      {
+        targetLanguage: 'typescript',
+        moduleSystem: 'esm',
+        namingStyle: 'camelCase',
+        indentStyle: '2-spaces',
+        quoteStyle: 'single',
+        semicolons: true,
+        errorHandlingIdiom: 'try-catch-typed',
+        detectedFrom: ['test'],
+      },
+      'BraceParserEngine',
+    );
+    // Inner apostrophe in "don't panic" must be escaped when converted to single quotes
+    expect(graft.adaptedCode).toContain("'don\\'t panic'");
+    expect(graft.adaptedCode).not.toContain('ansiColor');
+  });
+
+  it('8. Full MCP JSON-RPC Protocol Transport (ListTools, CallTool, ListResources, ReadResource)', async () => {
+    const { server } = createCloneVibeMcpServer();
+    const client = new Client({ name: 'clonevibe-test-client', version: '1.0.0' }, { capabilities: {} });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    const toolsList = await client.listTools();
+    expect(toolsList.tools.map((t) => t.name)).toEqual([
+      'ingest_reference',
+      'locate_feature_entrypoints',
+      'slice_engine_graph',
+      'profile_target_vibe',
+      'synthesize_chameleon_graft',
+      'verify_engine_parity',
+    ]);
+
+    const resourcesList = await client.listResources();
+    expect(resourcesList.resources.map((r) => r.uri)).toEqual([
+      'clonevibe://catalog/zero-dep-shims',
+      'clonevibe://guide/chameleon-workflow',
+    ]);
+
+    const shimCatalogRes = await client.readResource({ uri: 'clonevibe://catalog/zero-dep-shims' });
+    expect(String(shimCatalogRes.contents[0]?.text)).toContain('shim_deep_clone');
+
+    const ingestCall = await client.callTool({
+      name: 'ingest_reference',
+      arguments: { sourceUri: 'npm:retry-scheduler@2.0.0' },
+    });
+    expect(ingestCall.isError).toBeFalsy();
+    const firstBlock = (ingestCall.content as Array<{ type: string; text: string }>)[0];
+    const snapPayload = JSON.parse(firstBlock?.text ?? '{}') as { snapshotId: string };
+    expect(snapPayload.snapshotId).toMatch(/^snap_npm_/);
+
+    const errCall = await client.callTool({
+      name: 'locate_feature_entrypoints',
+      arguments: { snapshotId: 'snap_missing_id', featureQuery: 'backoff' },
+    });
+    expect(errCall.isError).toBe(true);
+
+    await client.close();
+    await server.close();
   });
 });

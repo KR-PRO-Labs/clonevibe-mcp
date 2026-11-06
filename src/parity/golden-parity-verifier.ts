@@ -63,7 +63,7 @@ export class GoldenParityVerifier {
         id: 'vec_unicode_payload',
         category: 'unicode',
         description: 'Multilingual UTF-8 & CJK/Emoji token stream preservation',
-        inputPayload: { raw: '  ?? Vibe ?? ??   ???  ' },
+        inputPayload: { raw: '  한글 Vibe 코딩 🚀   테스트  ' },
         expectedInvariant: 'Preserves UTF-8 code points while collapsing redundant whitespace',
       },
       {

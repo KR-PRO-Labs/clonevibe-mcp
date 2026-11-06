@@ -1,4 +1,4 @@
-# Architecture Map ? `@kr-pro-labs/clonevibe-mcp`
+# Architecture Map — `@kr-pro-labs/clonevibe-mcp`
 
 ## Directory & Module Index (O(1) Navigation)
 

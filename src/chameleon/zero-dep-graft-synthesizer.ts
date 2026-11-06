@@ -415,9 +415,15 @@ export class ZeroDepGraftSynthesizer {
         let formatted = (indentLevel > 0 ? indentUnit.repeat(indentLevel) : '') + trimmedStart;
 
         if (profile.quoteStyle === 'single') {
-          formatted = formatted.replace(/"([^"\\\r\n]*)"/g, "'$1'");
+          formatted = formatted.replace(/"((?:[^"\\\r\n]|\\.)*)"/g, (_match, inner: string) => {
+            const safeInner = inner.replace(/(?<!\\)'/g, "\\'");
+            return `'${safeInner}'`;
+          });
         } else {
-          formatted = formatted.replace(/'([^'\\\r\n]*)'/g, '"$1"');
+          formatted = formatted.replace(/'((?:[^'\\\r\n]|\\.)*)'/g, (_match, inner: string) => {
+            const safeInner = inner.replace(/(?<!\\)"/g, '\\"');
+            return `"${safeInner}"`;
+          });
         }
 
         if (!profile.semicolons && formatted.endsWith(';')) {

@@ -1,4 +1,4 @@
-# GUIDE.md ? @kr-pro-labs/clonevibe-mcp Workspace Guide
+# GUIDE.md — @kr-pro-labs/clonevibe-mcp Workspace Guide
 
 ## 1. Overview
 `@kr-pro-labs/clonevibe-mcp` is a Model Context Protocol (MCP) server engineered for **surgical AST feature slicing, zero-dependency Chameleon code grafting, and 1:1 Golden I/O parity verification** during Vibe Coding.

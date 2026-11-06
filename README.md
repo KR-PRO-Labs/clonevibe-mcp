@@ -1,6 +1,6 @@
 # @kr-pro-labs/clonevibe-mcp
 
-[**English**](./README.md) | [**??? (Korean)**](./README.ko.md)
+[**English**](./README.md) | [**한국어 (Korean)**](./README.ko.md)
 
 [![CI](https://github.com/KR-PRO-Labs/clonevibe-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/KR-PRO-Labs/clonevibe-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
@@ -32,7 +32,7 @@ flowchart LR
 ## Key Capabilities
 
 - **All-in-One Multi-Source Ingestion**: Ingests local codebases, GitHub URLs, package registry specs (`npm:`, `pypi:`, `cargo:`), inline file maps, and single-line minified JS bundles (with automatic token-aware structural formatting).
-- **Polyglot Transitive AST Closure Slicing**: Extracts top-level functions, classes, structs, interfaces, and call edges across **TypeScript, JavaScript, Python, Rust, and Go**, pruning 80%?98% of unrelated repository boilerplate.
+- **Polyglot Transitive AST Closure Slicing**: Extracts top-level functions, classes, structs, interfaces, and call edges across **TypeScript, JavaScript, Python, Rust, and Go**, pruning 80%–98% of unrelated repository boilerplate.
 - **Zero-Dependency Micro-Shim Catalog**: Automatically replaces external imports (`lodash`, `uuid`, `axios`, `node-fetch`, `chalk`, etc.) with self-contained standard-library inline primitives (`externalDepCount === 0`).
 - **Chameleon Style & Cross-Language Assimilation**: Profiles your workspace (`camelCase` vs `snake_case` vs `PascalCase`, `esm` vs `commonjs`, quotes, indentation, error handling) and synthesizes drop-in modules and Clean-Room Algorithmic Blueprints.
 - **1:1 Golden Parity Verification**: Executes empty, numeric boundary, Unicode/CJK, malformed, and deterministic seed Golden Vectors and emits a ready-to-run host unit test file (`vitest`, `pytest`, `cargo test`, or `go test`).
@@ -77,11 +77,11 @@ npm test
 
 ## MCP Resources
 
-- `clonevibe://catalog/zero-dep-shims` ? JSON catalog of zero-dependency inline shims across TypeScript, JavaScript, Python, Rust, and Go.
-- `clonevibe://guide/chameleon-workflow` ? Markdown guide for executing the 6-stage surgical grafting pipeline.
+- `clonevibe://catalog/zero-dep-shims` — JSON catalog of zero-dependency inline shims across TypeScript, JavaScript, Python, Rust, and Go.
+- `clonevibe://guide/chameleon-workflow` — Markdown guide for executing the 6-stage surgical grafting pipeline.
 
 ---
 
 ## License
 
-MIT ? [KR-PRO-Labs](https://github.com/KR-PRO-Labs) & [Julian Vane (`@goooem`)](https://github.com/goooem)
+MIT © [KR-PRO-Labs](https://github.com/KR-PRO-Labs) & [Julian Vane (`@goooem`)](https://github.com/goooem)
