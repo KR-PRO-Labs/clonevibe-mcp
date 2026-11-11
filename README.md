@@ -7,11 +7,11 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20.0.0-339933)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-1.0.4-7c3aed)](https://modelcontextprotocol.io/)
 
-**Surgical AST Feature Slicer, Zero-Dependency Chameleon Code Grafter & 1:1 Golden Parity MCP Server for Vibe Coding.**
+**Surgical AST Feature Slicer, Zero-Dependency Chameleon Code Grafter, 1:1 Golden Parity Verifier & Workspace Patch Engine for Vibe Coding.**
 
 During Vibe Coding, engineers frequently discover a specific algorithm, table parser, retry scheduler, physics routine, or state machine buried inside a massive external reference (a 50,000-line GitHub repository, an `npm:`/`pypi:`/`cargo:` package, or a minified JS bundle). Cloning the entire repository or installing bloated dependency trees pollutes your project.
 
-**`clonevibe-mcp`** extracts **only** the minimal transitive AST closure of the target feature, replaces third-party dependencies with lightweight zero-dependency inline micro-shims, adapts the code to your host project's language and style conventions, and mechanically proves 1:1 behavioral equivalence via Golden I/O vectors.
+**`clonevibe-mcp`** extracts **only** the minimal transitive AST closure of the target feature, replaces third-party dependencies with lightweight zero-dependency inline micro-shims, adapts the code to your host project's language and style conventions, mechanically proves 1:1 behavioral equivalence via Golden I/O vectors, and generates non-destructive unified diff patches for instant workspace integration.
 
 ---
 
@@ -25,6 +25,7 @@ flowchart LR
     E["4. profile_target_vibe\nChameleon Style Scanner"] --> F["5. synthesize_chameleon_graft\nZero-Dep Inliner & Code Synthesizer"]
     D --> F
     F --> G["6. verify_engine_parity\n1:1 Golden I/O Parity Verifier"]
+    F --> H["7. preview_graft_patch\nWorkspace Unified Diff & AST Splicer"]
 ```
 
 ---
@@ -33,9 +34,11 @@ flowchart LR
 
 - **All-in-One Multi-Source Ingestion**: Ingests local codebases, GitHub URLs, package registry specs (`npm:`, `pypi:`, `cargo:`), inline file maps, and single-line minified JS bundles (with automatic token-aware structural formatting).
 - **Polyglot Transitive AST Closure Slicing**: Extracts top-level functions, classes, structs, interfaces, and call edges across **TypeScript, JavaScript, Python, Rust, and Go**, pruning 80%–98% of unrelated repository boilerplate.
-- **Zero-Dependency Micro-Shim Catalog**: Automatically replaces external imports (`lodash`, `uuid`, `axios`, `node-fetch`, `chalk`, etc.) with self-contained standard-library inline primitives (`externalDepCount === 0`).
+- **8-Package Zero-Dependency Micro-Shim Catalog**: Automatically replaces external imports (`lodash`, `uuid`, `axios`, `chalk`, `lru-cache`, `semver`, `crc-32`, `eventemitter3`) with self-contained standard-library inline primitives (`externalDepCount === 0`).
 - **Chameleon Style & Cross-Language Assimilation**: Profiles your workspace (`camelCase` vs `snake_case` vs `PascalCase`, `esm` vs `commonjs`, quotes, indentation, error handling) and synthesizes drop-in modules and Clean-Room Algorithmic Blueprints.
 - **1:1 Golden Parity Verification**: Executes empty, numeric boundary, Unicode/CJK, malformed, and deterministic seed Golden Vectors and emits a ready-to-run host unit test file (`vitest`, `pytest`, `cargo test`, or `go test`).
+- **Non-Destructive Workspace Patching**: Generates clean unified diff previews with automatic shim deduplication and supports `append`, `prepend`, and `smart-replace-symbol` strategies.
+- **Full MCP Protocol Compliance**: Implements MCP Tools, Resources, and Prompts (`surgical_slice_feature`, `audit_zero_dep_graft`, `explain_algorithmic_blueprint`).
 
 ---
 
@@ -74,11 +77,18 @@ npm test
 | `profile_target_vibe` | Inspects a target workspace or code sample to detect language, module system, casing, quotes, indentation, and error-handling idiom. |
 | `synthesize_chameleon_graft` | Generates a zero-dependency adapted code module and Clean-Room Algorithmic Blueprint in the target language. |
 | `verify_engine_parity` | Verifies 1:1 Golden I/O parity, confirms zero external dependencies, and outputs a runnable test suite. |
+| `preview_graft_patch` | Generates a unified diff preview for integrating the graft into a host workspace file with automatic shim deduplication. |
+
+## MCP Prompts
+
+- `surgical_slice_feature` — Guided 7-stage runbook from reference source to unified diff patch preview.
+- `audit_zero_dep_graft` — Automated purity audit verifying 0 external runtime package imports.
+- `explain_algorithmic_blueprint` — Walkthrough of state transitions, pure signatures, complexity bounds, and invariants.
 
 ## MCP Resources
 
-- `clonevibe://catalog/zero-dep-shims` — JSON catalog of zero-dependency inline shims across TypeScript, JavaScript, Python, Rust, and Go.
-- `clonevibe://guide/chameleon-workflow` — Markdown guide for executing the 6-stage surgical grafting pipeline.
+- `clonevibe://catalog/zero-dep-shims` — JSON catalog of 8 zero-dependency inline shims across TypeScript, JavaScript, Python, Rust, and Go.
+- `clonevibe://guide/chameleon-workflow` — Markdown guide for executing the 7-stage surgical grafting & patch workflow.
 
 ---
 

@@ -144,3 +144,23 @@ export interface ParityVerificationReport {
   generatedTestSuite: string;
   generatedTestFilePath: string;
 }
+
+export interface GraftPatchResult {
+  patchId: string;
+  graftId: string;
+  targetFilePath?: string;
+  originalLineCount: number;
+  patchedLineCount: number;
+  unifiedDiff: string;
+  patchedContent: string;
+  integratedSymbols: string[];
+  inlinedShims: string[];
+}
+
+export interface PreviewGraftPatchInput {
+  graftId: string;
+  targetFilePath?: string;
+  targetFileContent?: string;
+  integrationStrategy?: 'append' | 'prepend' | 'smart-replace-symbol';
+}
+

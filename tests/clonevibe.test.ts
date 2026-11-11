@@ -499,6 +499,7 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
       'profile_target_vibe',
       'synthesize_chameleon_graft',
       'verify_engine_parity',
+      'preview_graft_patch',
     ]);
 
     const resourcesList = await client.listResources();
@@ -524,6 +525,227 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
       arguments: { snapshotId: 'snap_missing_id', featureQuery: 'backoff' },
     });
     expect(errCall.isError).toBe(true);
+
+    await client.close();
+    await server.close();
+  });
+
+  it('9. Expanded ZERO_DEP_SHIM_CATALOG & MCP Prompts Protocol (ListPrompts, GetPrompt)', async () => {
+    const { server, engine } = createCloneVibeMcpServer();
+    const client = new Client({ name: 'clonevibe-prompt-client', version: '1.0.0' }, { capabilities: {} });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    // Check shim catalog has 8 items
+    const { ZERO_DEP_SHIM_CATALOG } = await import('../src/index.js');
+    expect(ZERO_DEP_SHIM_CATALOG.length).toBe(8);
+    const shimIds = ZERO_DEP_SHIM_CATALOG.map((s) => s.shimId);
+    expect(shimIds).toContain('shim_lru_cache');
+    expect(shimIds).toContain('shim_semver_parse');
+    expect(shimIds).toContain('shim_crc32_hash');
+    expect(shimIds).toContain('shim_event_emitter');
+
+    // Test ListPrompts
+    const promptsList = await client.listPrompts();
+    expect(promptsList.prompts.map((p) => p.name)).toEqual([
+      'surgical_slice_feature',
+      'audit_zero_dep_graft',
+      'explain_algorithmic_blueprint',
+    ]);
+
+    // Test surgical_slice_feature GetPrompt
+    const slicePrompt = await client.getPrompt({
+      name: 'surgical_slice_feature',
+      arguments: {
+        sourceUri: 'github:pallets/click',
+        featureQuery: 'command parser',
+        targetLanguage: 'typescript',
+      },
+    });
+    expect(slicePrompt.messages.length).toBe(1);
+    const sliceMsg = slicePrompt.messages[0]!.content as { type: string; text: string };
+    expect(sliceMsg.text).toContain('pallets/click');
+    expect(sliceMsg.text).toContain('command parser');
+    expect(sliceMsg.text).toContain('preview_graft_patch');
+
+    // Synthesize a graft to test audit_zero_dep_graft and explain_algorithmic_blueprint prompts
+    const snap = engine.ingestReference({
+      sourceUri: 'local:cache-feature',
+      inlineFiles: [
+        {
+          relativePath: 'src/cache.ts',
+          language: 'typescript',
+          content: [
+            "import LRU from 'lru-cache';",
+            '',
+            'export class TokenCache {',
+            '  private c = new LRU({ max: 50 });',
+            '  get(k: string) { return this.c.get(k); }',
+            '}',
+          ].join('\n'),
+        },
+      ],
+    });
+    const slice = engine.sliceEngineGraph({
+      snapshotId: snap.snapshotId,
+      entrypointIds: ['TokenCache'],
+    });
+    const graft = engine.synthesizeChameleonGraft({
+      sliceId: slice.sliceId,
+      engineName: 'TokenCacheEngine',
+      targetProfile: {
+        targetLanguage: 'typescript',
+        moduleSystem: 'esm',
+        namingStyle: 'PascalCase',
+        indentStyle: '2-spaces',
+        quoteStyle: 'single',
+        semicolons: true,
+        errorHandlingIdiom: 'try-catch-typed',
+      },
+    });
+
+    const auditPrompt = await client.getPrompt({
+      name: 'audit_zero_dep_graft',
+      arguments: { graftId: graft.graftId },
+    });
+    const auditMsg = auditPrompt.messages[0]!.content as { type: string; text: string };
+    expect(auditMsg.text).toContain('TokenCacheEngine');
+    expect(auditMsg.text).toContain('External Dependency Count: 0');
+
+    const bpPrompt = await client.getPrompt({
+      name: 'explain_algorithmic_blueprint',
+      arguments: { graftId: graft.graftId },
+    });
+    const bpMsg = bpPrompt.messages[0]!.content as { type: string; text: string };
+    expect(bpMsg.text).toContain('Algorithmic Blueprint: TokenCacheEngine');
+    expect(bpMsg.text).toContain('Time Complexity');
+
+    // Test missing prompt error
+    await expect(client.getPrompt({ name: 'non_existent_prompt' })).rejects.toThrow();
+
+    await client.close();
+    await server.close();
+  });
+
+  it('10. GraftPatchGenerator & preview_graft_patch generates unified diffs, deduplicates shims, and supports append/prepend/smart-replace', async () => {
+    const { server, engine } = createCloneVibeMcpServer();
+    const client = new Client({ name: 'clonevibe-patch-client', version: '1.0.0' }, { capabilities: {} });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    const snap = engine.ingestReference({
+      sourceUri: 'local:math-engine',
+      inlineFiles: [
+        {
+          relativePath: 'src/math.ts',
+          language: 'typescript',
+          content: [
+            "import { cloneDeep } from 'lodash';",
+            '',
+            'export function computeWeightedSum(values: number[], weights: number[]): number {',
+            '  const clonedValues = cloneDeep(values);',
+            '  return clonedValues.reduce((acc, v, i) => acc + v * (weights[i] ?? 1), 0);',
+            '}',
+          ].join('\n'),
+        },
+      ],
+    });
+
+    const slice = engine.sliceEngineGraph({
+      snapshotId: snap.snapshotId,
+      entrypointIds: ['computeWeightedSum'],
+    });
+
+    const graft = engine.synthesizeChameleonGraft({
+      sliceId: slice.sliceId,
+      engineName: 'computeWeightedSum',
+      targetProfile: {
+        targetLanguage: 'typescript',
+        moduleSystem: 'esm',
+        namingStyle: 'camelCase',
+        indentStyle: '2-spaces',
+        quoteStyle: 'single',
+        semicolons: true,
+        errorHandlingIdiom: 'try-catch-typed',
+      },
+    });
+
+    // Strategy 1: append to existing file that DOES NOT have cloneDeep
+    const hostCodeEmpty = 'export const VERSION = "1.0.0";\n';
+    const patchResult = engine.previewGraftPatch({
+      graftId: graft.graftId,
+      targetFilePath: 'src/utils/math.ts',
+      targetFileContent: hostCodeEmpty,
+      integrationStrategy: 'append',
+    });
+
+    expect(patchResult.patchId).toMatch(/^patch_/);
+    expect(patchResult.originalLineCount).toBe(2);
+    expect(patchResult.patchedLineCount).toBeGreaterThan(5);
+    expect(patchResult.unifiedDiff).toContain('--- a/src/utils/math.ts');
+    expect(patchResult.unifiedDiff).toContain('+++ b/src/utils/math.ts');
+    expect(patchResult.unifiedDiff).toContain(' export const VERSION');
+    expect(patchResult.unifiedDiff).toContain('+function cloneDeep');
+    expect(patchResult.unifiedDiff).toContain('+export function computeWeightedSum');
+
+    // Strategy 2: append to existing file that ALREADY HAS cloneDeep (deduplication check)
+    const hostCodeWithCloneDeep = [
+      'export function cloneDeep<T>(val: T): T { return structuredClone(val); }',
+      '',
+      'export const PI = 3.14159;',
+    ].join('\n');
+
+    const dedupPatch = engine.previewGraftPatch({
+      graftId: graft.graftId,
+      targetFilePath: 'src/utils/math.ts',
+      targetFileContent: hostCodeWithCloneDeep,
+      integrationStrategy: 'append',
+    });
+    // The graft block should omit redundant cloneDeep shim declaration
+    const graftSection = dedupPatch.patchedContent.split('// --- CloneVibe Chameleon Graft: computeWeightedSum ---')[1]!;
+    expect(graftSection).not.toContain('function cloneDeep');
+    expect(graftSection).toContain('function computeWeightedSum');
+
+    // Strategy 3: smart-replace-symbol
+    const hostCodeWithStaleFunction = [
+      'export const HEADER = true;',
+      '',
+      'export function computeWeightedSum(values: number[], weights: number[]): number {',
+      '  return 0; // STUB',
+      '}',
+      '',
+      'export const FOOTER = false;',
+    ].join('\n');
+
+    const replacePatch = engine.previewGraftPatch({
+      graftId: graft.graftId,
+      targetFilePath: 'src/utils/math.ts',
+      targetFileContent: hostCodeWithStaleFunction,
+      integrationStrategy: 'smart-replace-symbol',
+    });
+    expect(replacePatch.patchedContent).not.toContain('return 0; // STUB');
+    expect(replacePatch.patchedContent).toContain('export const HEADER = true;');
+    expect(replacePatch.patchedContent).toContain('export const FOOTER = false;');
+    expect(replacePatch.unifiedDiff).toContain('-  return 0; // STUB');
+
+    // Test preview_graft_patch tool via MCP Client JSON-RPC
+    const toolCall = await client.callTool({
+      name: 'preview_graft_patch',
+      arguments: {
+        graftId: graft.graftId,
+        targetFilePath: 'src/math.ts',
+        targetFileContent: 'export const initial = 1;\n',
+      },
+    });
+    expect(toolCall.isError).toBeFalsy();
+    const payload = JSON.parse((toolCall.content as Array<{ text: string }>)[0]!.text) as {
+      patchId: string;
+      unifiedDiff: string;
+    };
+    expect(payload.patchId).toMatch(/^patch_/);
+    expect(payload.unifiedDiff).toContain('--- a/src/math.ts');
 
     await client.close();
     await server.close();

@@ -8,6 +8,7 @@ export * from './slicer/polyglot-symbol-extractor.js';
 export * from './slicer/ast-closure-slicer.js';
 export * from './chameleon/target-vibe-profiler.js';
 export * from './chameleon/zero-dep-graft-synthesizer.js';
+export * from './chameleon/graft-patch-generator.js';
 export * from './parity/golden-parity-verifier.js';
 export { createCloneVibeMcpServer, CloneVibeEngine };
 
