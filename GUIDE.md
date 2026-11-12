@@ -29,3 +29,11 @@ npm start            # Launch MCP stdio server (dist/index.js)
 - **`surgical_slice_feature`**: Guided 7-stage runbook from reference source to unified diff patch preview.
 - **`audit_zero_dep_graft`**: Automated audit verifying 0 external runtime imports and strict type safety.
 - **`explain_algorithmic_blueprint`**: Walkthrough of state machine transitions, pure signatures, complexity bounds, and invariants.
+
+## 5. CLI Inspection & Benchmarking Subcommands
+```bash
+node ./dist/index.js --catalog          # Inspect the 10-shim zero-dependency catalog
+node ./dist/index.js --profile ./src    # Profile target workspace vibe conventions
+node ./dist/index.js --slice <query>    # Quick AST feature entrypoint slicing
+node ./dist/index.js --bench            # Run 7-stage continuous deterministic benchmark suite
+```

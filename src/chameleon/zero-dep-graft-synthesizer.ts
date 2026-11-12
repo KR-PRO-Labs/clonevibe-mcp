@@ -8,9 +8,11 @@ import type {
   SymbolNode,
   TargetVibeProfile,
 } from '../types/domain.js';
+import { AutoPolyfillTranspiler } from './polyfill-transpiler.js';
 
 export class ZeroDepGraftSynthesizer {
   private readonly grafts = new Map<string, ChameleonGraftResult>();
+  public readonly polyfillTranspiler = new AutoPolyfillTranspiler();
 
   public synthesizeChameleonGraft(
     slice: EngineSliceResult,
@@ -200,6 +202,9 @@ export class ZeroDepGraftSynthesizer {
         code = code.replace(new RegExp(`\\b${escaped}\\b`, 'g'), newName);
       }
 
+      // Transpile external package call expressions into local zero-dep shim calls
+      code = this.polyfillTranspiler.transpileAstCallExpressions(code, profile.targetLanguage);
+
       const finalName = renameMap.get(sym.name) ?? sym.name;
       if (profile.moduleSystem === 'commonjs') {
         code = code.replace(/^\s*export\s+(?:default\s+)?/, '');
@@ -228,20 +233,12 @@ export class ZeroDepGraftSynthesizer {
     indentUnit: string,
     engineName: string,
   ): string {
-    const sections: string[] = [
-      `"""${engineName} - Zero-Dependency Chameleon Graft synthesized by @kr-pro-labs/clonevibe-mcp."""`,
-      'from __future__ import annotations',
-    ];
+    const symbolBlocks: string[] = [];
 
-    if (shimBlocks.length > 0) {
-      sections.push('# --- Zero-Dependency Inline Micro-Shims ---');
-      sections.push(...shimBlocks);
-    }
-
-    sections.push('# --- Sliced & Adapted Engine Closure ---');
     for (const sym of symbols) {
       const cleaned = this.stripExternalImportLines(sym.sourceCode);
-      const reindented = cleaned
+      const transpiled = this.polyfillTranspiler.transpileAstCallExpressions(cleaned, 'python');
+      const reindented = transpiled
         .split(/\r?\n/)
         .map((line) => {
           const leadingSpaces = line.length - line.trimStart().length;
@@ -250,40 +247,31 @@ export class ZeroDepGraftSynthesizer {
           return indentUnit.repeat(level) + line.trimStart();
         })
         .join('\n');
-      sections.push(reindented);
+      symbolBlocks.push(reindented);
     }
 
-    return sections.join('\n\n') + '\n';
+    return this.polyfillTranspiler.consolidatePythonModule(shimBlocks, symbolBlocks, engineName).code;
   }
 
   private formatRustGraft(symbols: SymbolNode[], shimBlocks: string[], engineName: string): string {
-    const sections: string[] = [
-      `//! ${engineName} - Zero-Dependency Chameleon Graft synthesized by @kr-pro-labs/clonevibe-mcp`,
-    ];
-    if (shimBlocks.length > 0) {
-      sections.push('// --- Zero-Dependency Inline Micro-Shims ---');
-      sections.push(...shimBlocks);
-    }
-    sections.push('// --- Sliced & Adapted Engine Closure ---');
+    const symbolBlocks: string[] = [];
     for (const sym of symbols) {
-      sections.push(this.stripExternalImportLines(sym.sourceCode));
+      const cleaned = this.stripExternalImportLines(sym.sourceCode);
+      const transpiled = this.polyfillTranspiler.transpileAstCallExpressions(cleaned, 'rust');
+      symbolBlocks.push(transpiled);
     }
-    return sections.join('\n\n') + '\n';
+    return this.polyfillTranspiler.consolidateRustModule(shimBlocks, symbolBlocks, engineName).code;
   }
 
   private formatGoGraft(symbols: SymbolNode[], shimBlocks: string[], engineName: string): string {
     const pkgName = this.convertIdentifierCase(engineName, 'snake_case').replace(/_/g, '') || 'graftedengine';
-    const sections: string[] = [
-      `// Package ${pkgName} is a Zero-Dependency Chameleon Graft synthesized by @kr-pro-labs/clonevibe-mcp.`,
-      `package ${pkgName}`,
-    ];
-    if (shimBlocks.length > 0) {
-      sections.push(...shimBlocks);
-    }
+    const symbolBlocks: string[] = [];
     for (const sym of symbols) {
-      sections.push(this.stripExternalImportLines(sym.sourceCode));
+      const cleaned = this.stripExternalImportLines(sym.sourceCode);
+      const transpiled = this.polyfillTranspiler.transpileAstCallExpressions(cleaned, 'go');
+      symbolBlocks.push(transpiled);
     }
-    return sections.join('\n\n') + '\n';
+    return this.polyfillTranspiler.consolidateGoModule(shimBlocks, symbolBlocks, pkgName, engineName).code;
   }
 
   private synthesizeCrossLanguageModule(
@@ -295,19 +283,12 @@ export class ZeroDepGraftSynthesizer {
   ): string {
     const lang = profile.targetLanguage;
     if (lang === 'python') {
-      const blocks: string[] = [
-        `"""${engineName} - Cross-Language Zero-Dependency Graft (${lang})."""`,
-        'from __future__ import annotations',
-        'from typing import Any',
-      ];
-      if (shimBlocks.length > 0) {
-        blocks.push(...shimBlocks);
-      }
+      const classAndFnBlocks: string[] = [];
       for (const sym of symbols) {
         const fnName = this.convertIdentifierCase(sym.name, 'snake_case');
         if (sym.kind === 'interface' || sym.kind === 'type' || sym.kind === 'struct' || sym.kind === 'class') {
           const clsName = this.convertIdentifierCase(sym.name, 'PascalCase');
-          blocks.push(
+          classAndFnBlocks.push(
             [
               `class ${clsName}:`,
               `${indentUnit}"""Clean-room synthesized data contract from ${sym.id}."""`,
@@ -321,7 +302,7 @@ export class ZeroDepGraftSynthesizer {
             calleeCalls.length > 0
               ? `${indentUnit}return {"symbol": "${fnName}", "delegates": [${calleeCalls.map((c) => `"${c}"`).join(', ')}], "payload": payload}`
               : `${indentUnit}return {"symbol": "${fnName}", "payload": payload}`;
-          blocks.push(
+          classAndFnBlocks.push(
             [
               `def ${fnName}(payload: Any = None) -> dict[str, Any]:`,
               `${indentUnit}"""Synthesized from ${sym.id}."""`,
@@ -330,19 +311,14 @@ export class ZeroDepGraftSynthesizer {
           );
         }
       }
-      return blocks.join('\n\n') + '\n';
+      return this.polyfillTranspiler.consolidatePythonModule(shimBlocks, classAndFnBlocks, engineName).code;
     }
 
     if (lang === 'rust') {
-      const blocks: string[] = [
-        `//! ${engineName} - Cross-Language Zero-Dependency Graft (Rust)`,
-      ];
-      if (shimBlocks.length > 0) {
-        blocks.push(...shimBlocks);
-      }
+      const fnBlocks: string[] = [];
       for (const sym of symbols) {
         const fnName = this.convertIdentifierCase(sym.name, 'snake_case');
-        blocks.push(
+        fnBlocks.push(
           [
             `pub fn ${fnName}(input: &str) -> String {`,
             `    format!("${fnName}:{}", input.trim())`,
@@ -350,19 +326,14 @@ export class ZeroDepGraftSynthesizer {
           ].join('\n'),
         );
       }
-      return blocks.join('\n\n') + '\n';
+      return this.polyfillTranspiler.consolidateRustModule(shimBlocks, fnBlocks, engineName).code;
     }
 
     if (lang === 'go') {
-      const blocks: string[] = [
-        'package graftedengine',
-      ];
-      if (shimBlocks.length > 0) {
-        blocks.push(...shimBlocks);
-      }
+      const fnBlocks: string[] = [];
       for (const sym of symbols) {
         const fnName = this.convertIdentifierCase(sym.name, 'PascalCase');
-        blocks.push(
+        fnBlocks.push(
           [
             `func ${fnName}(input string) string {`,
             `\treturn "${fnName}:" + input`,
@@ -370,7 +341,7 @@ export class ZeroDepGraftSynthesizer {
           ].join('\n'),
         );
       }
-      return blocks.join('\n\n') + '\n';
+      return this.polyfillTranspiler.consolidateGoModule(shimBlocks, fnBlocks, 'graftedengine', engineName).code;
     }
 
     // Default TypeScript / JavaScript cross-language synthesis

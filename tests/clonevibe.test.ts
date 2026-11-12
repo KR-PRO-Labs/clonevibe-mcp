@@ -10,6 +10,10 @@ import {
   AstClosureSlicer,
   TargetVibeProfiler,
   ZeroDepGraftSynthesizer,
+  AutoPolyfillTranspiler,
+  BenchmarkRunner,
+  runCli,
+  ZERO_DEP_SHIM_CATALOG,
   GoldenParityVerifier,
 } from '../src/index.js';
 
@@ -537,9 +541,9 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
 
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
 
-    // Check shim catalog has 8 items
+    // Check shim catalog has at least 8 items (expanded to 10 in M9)
     const { ZERO_DEP_SHIM_CATALOG } = await import('../src/index.js');
-    expect(ZERO_DEP_SHIM_CATALOG.length).toBe(8);
+    expect(ZERO_DEP_SHIM_CATALOG.length).toBeGreaterThanOrEqual(8);
     const shimIds = ZERO_DEP_SHIM_CATALOG.map((s) => s.shimId);
     expect(shimIds).toContain('shim_lru_cache');
     expect(shimIds).toContain('shim_semver_parse');
@@ -749,5 +753,187 @@ describe('@kr-pro-labs/clonevibe-mcp End-to-End Verification Suite', () => {
 
     await client.close();
     await server.close();
+  });
+
+  it('11. AutoPolyfillTranspiler hardens Python, Go, and Rust module boundaries and transpile call expressions', () => {
+    const transpiler = new AutoPolyfillTranspiler();
+
+    // 1. Go module consolidation
+    const goShims = [
+      'import "encoding/base64"\nfunc base64Encode(b []byte) string { return base64.StdEncoding.EncodeToString(b) }',
+      'import (\n\t"strconv"\n\t"strings"\n)\nfunc parseSemVer(v string) int { return 1 }',
+      'import "hash/crc32"\nfunc computeCrc32(d []byte) uint32 { return crc32.ChecksumIEEE(d) }',
+    ];
+    const goSymbols = [
+      'import "fmt"\nfunc RunEngine(name string) {\n\tfmt.Println(name)\n}',
+    ];
+
+    const goOut = transpiler.consolidateGoModule(goShims, goSymbols, 'graftpkg', 'CryptoEngine');
+    expect(goOut.code).toContain('package graftpkg');
+    expect(goOut.code).toContain('import (\n\t"encoding/base64"\n\t"fmt"\n\t"hash/crc32"\n\t"strconv"\n\t"strings"\n)');
+    // Individual scattered imports must be stripped
+    expect(goOut.code).not.toContain('func base64Encode(b []byte) string { import');
+    expect(goOut.inlinedImports).toEqual(['"encoding/base64"', '"fmt"', '"hash/crc32"', '"strconv"', '"strings"']);
+    expect(goOut.inlinedShimCount).toBe(3);
+
+    // 2. Python module consolidation
+    const pyShims = [
+      'import base64 as _std_b64\ndef base64_encode(d): return _std_b64.b64encode(d)',
+      'import copy as _std_copy\ndef clone_deep(v): return _std_copy.deepcopy(v)',
+      'from collections import OrderedDict\nclass Cache: pass',
+    ];
+    const pySymbols = [
+      'def process(data):\n    return base64_encode(clone_deep(data))',
+    ];
+
+    const pyOut = transpiler.consolidatePythonModule(pyShims, pySymbols, 'DataEngine');
+    expect(pyOut.code).toContain('"""DataEngine - Zero-Dependency Chameleon Graft synthesized by @kr-pro-labs/clonevibe-mcp."""');
+    expect(pyOut.code).toContain('from __future__ import annotations');
+    expect(pyOut.code).toContain('import base64 as _std_b64');
+    expect(pyOut.code).toContain('import copy as _std_copy');
+    expect(pyOut.code).toContain('from collections import OrderedDict');
+    expect(pyOut.inlinedShimCount).toBe(3);
+
+    // 3. Rust module consolidation with isolated mod
+    const rustShims = [
+      'use std::collections::VecDeque;\npub struct Queue { q: VecDeque<u32> }',
+      'use std::sync::Arc;\npub struct Shared { s: Arc<u32> }',
+    ];
+    const rustSymbols = [
+      'pub fn run_queue() -> Queue { Queue { q: VecDeque::new() } }',
+    ];
+
+    const rustOut = transpiler.consolidateRustModule(rustShims, rustSymbols, 'RustEngine', {
+      encapsulateRustMod: true,
+    });
+    expect(rustOut.code).toContain('//! RustEngine - Zero-Dependency Chameleon Graft');
+    expect(rustOut.code).toContain('use std::collections::VecDeque;');
+    expect(rustOut.code).toContain('use std::sync::Arc;');
+    expect(rustOut.code).toContain('pub mod zero_dep_shims {');
+    expect(rustOut.code).toContain('pub use zero_dep_shims::*;');
+
+    // 4. AST call expression transpilation
+    const tsSnippet = 'const a = lodash.cloneDeep(x); const b = uuid.v4(); const c = axios.get("url");';
+    const tsTranspiled = transpiler.transpileAstCallExpressions(tsSnippet, 'typescript');
+    expect(tsTranspiled).toBe('const a = cloneDeep(x); const b = uuidv4(); const c = nativeJsonFetch("url");');
+
+    const pySnippet = 'a = copy.deepcopy(x)\nb = uuid.uuid4()\nc = requests.get(url).json()';
+    const pyTranspiled = transpiler.transpileAstCallExpressions(pySnippet, 'python');
+    expect(pyTranspiled).toBe('a = clone_deep(x)\nb = uuid_v4()\nc = native_json_fetch(url)');
+
+    const goSnippet = 'sum := crc32.ChecksumIEEE(buf)';
+    const goTranspiled = transpiler.transpileAstCallExpressions(goSnippet, 'go');
+    expect(goTranspiled).toBe('sum := computeCrc32(buf)');
+
+    // 5. Verify expanded 10-shim catalog
+    expect(ZERO_DEP_SHIM_CATALOG.length).toBe(10);
+    const base64Shim = ZERO_DEP_SHIM_CATALOG.find((s) => s.shimId === 'shim_base64_codec');
+    expect(base64Shim).toBeDefined();
+    expect(base64Shim?.inlineImplementation.typescript).toContain('base64Encode');
+    expect(base64Shim?.inlineImplementation.python).toContain('base64_encode');
+    expect(base64Shim?.inlineImplementation.rust).toContain('base64_encode');
+    expect(base64Shim?.inlineImplementation.go).toContain('base64Encode');
+
+    const limiterShim = ZERO_DEP_SHIM_CATALOG.find((s) => s.shimId === 'shim_token_bucket');
+    expect(limiterShim).toBeDefined();
+    expect(limiterShim?.inlineImplementation.typescript).toContain('TokenBucketLimiter');
+    expect(limiterShim?.inlineImplementation.python).toContain('TokenBucketLimiter');
+    expect(limiterShim?.inlineImplementation.rust).toContain('TokenBucketLimiter');
+    expect(limiterShim?.inlineImplementation.go).toContain('TokenBucketLimiter');
+  });
+
+  it('12. BenchmarkRunner executes 7-stage deterministic benchmarks and runCli handles interactive subcommands', () => {
+    // 1. BenchmarkRunner execution
+    const runner = new BenchmarkRunner();
+    const suite = runner.runDeterministicBenchmarks(10);
+
+    expect(suite.results.length).toBe(7);
+    expect(suite.totalOperations).toBe(70);
+    expect(suite.totalDurationMs).toBeGreaterThan(0);
+    for (const res of suite.results) {
+      expect(res.status).toBe('passed');
+      expect(res.opsPerSec).toBeGreaterThan(0);
+    }
+
+    const report = runner.formatBenchmarkReport(suite);
+    expect(report).toContain('Deterministic Performance Benchmark');
+    expect(report).toContain('Multi-Source Ingestion & Bundle Normalization');
+    expect(report).toContain('Polyglot AST Symbol & Edge Extraction');
+    expect(report).toContain('Transitive AST Closure Slicing & Pruning');
+    expect(report).toContain('Target Vibe Convention Profiling');
+    expect(report).toContain('Chameleon Zero-Dep Graft & Polyfill Transpilation');
+    expect(report).toContain('Deterministic Golden Parity Vector Verification');
+    expect(report).toContain('Unified Diff AST Integration Patch Generation');
+
+    // 2. Interactive CLI subcommands testing with stdout capture
+    let stdoutBuf = '';
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown) => {
+      stdoutBuf += String(chunk);
+      return true;
+    }) as unknown as typeof process.stdout.write;
+
+    try {
+      // --version
+      stdoutBuf = '';
+      const handledVersion = runCli(['node', 'bin', '--version']);
+      expect(handledVersion).toBe(true);
+      expect(stdoutBuf.trim()).toBe('1.0.0');
+
+      // --help
+      stdoutBuf = '';
+      const handledHelp = runCli(['node', 'bin', '--help']);
+      expect(handledHelp).toBe(true);
+      expect(stdoutBuf).toContain('USAGE:');
+      expect(stdoutBuf).toContain('--catalog');
+      expect(stdoutBuf).toContain('--benchmark');
+
+      // --catalog
+      stdoutBuf = '';
+      const handledCatalog = runCli(['node', 'bin', '--catalog']);
+      expect(handledCatalog).toBe(true);
+      expect(stdoutBuf).toContain('Zero-Dependency Micro-Shim Catalog (10 shims)');
+      expect(stdoutBuf).toContain('shim_base64_codec');
+      expect(stdoutBuf).toContain('shim_token_bucket');
+
+      // --catalog --json
+      stdoutBuf = '';
+      const handledCatalogJson = runCli(['node', 'bin', '--catalog', '--json']);
+      expect(handledCatalogJson).toBe(true);
+      const catalogArr = JSON.parse(stdoutBuf) as unknown[];
+      expect(Array.isArray(catalogArr)).toBe(true);
+      expect(catalogArr.length).toBe(10);
+
+      // --profile ./src
+      stdoutBuf = '';
+      const handledProfile = runCli(['node', 'bin', '--profile', './src']);
+      expect(handledProfile).toBe(true);
+      expect(stdoutBuf).toContain('Target Workspace Profile');
+
+      // --profile ./src --json
+      stdoutBuf = '';
+      const handledProfileJson = runCli(['node', 'bin', '--profile', './src', '--json']);
+      expect(handledProfileJson).toBe(true);
+      const profileObj = JSON.parse(stdoutBuf) as { targetLanguage: string };
+      expect(profileObj.targetLanguage).toBe('typescript');
+
+      // --slice normalizeCell --source ./src
+      stdoutBuf = '';
+      const handledSlice = runCli(['node', 'bin', '--slice', 'MultiSourceIngestor', '--source', './src']);
+      expect(handledSlice).toBe(true);
+      expect(stdoutBuf).toContain('Feature Query: "MultiSourceIngestor"');
+
+      // --bench
+      stdoutBuf = '';
+      const handledBench = runCli(['node', 'bin', '--bench']);
+      expect(handledBench).toBe(true);
+      expect(stdoutBuf).toContain('Deterministic Performance Benchmark');
+
+      // Default (no flags) -> passes through to MCP stdio server
+      const handledDefault = runCli(['node', 'bin']);
+      expect(handledDefault).toBe(false);
+    } finally {
+      process.stdout.write = originalStdoutWrite;
+    }
   });
 });

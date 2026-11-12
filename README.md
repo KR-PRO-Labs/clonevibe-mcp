@@ -34,11 +34,34 @@ flowchart LR
 
 - **All-in-One Multi-Source Ingestion**: Ingests local codebases, GitHub URLs, package registry specs (`npm:`, `pypi:`, `cargo:`), inline file maps, and single-line minified JS bundles (with automatic token-aware structural formatting).
 - **Polyglot Transitive AST Closure Slicing**: Extracts top-level functions, classes, structs, interfaces, and call edges across **TypeScript, JavaScript, Python, Rust, and Go**, pruning 80%–98% of unrelated repository boilerplate.
-- **8-Package Zero-Dependency Micro-Shim Catalog**: Automatically replaces external imports (`lodash`, `uuid`, `axios`, `chalk`, `lru-cache`, `semver`, `crc-32`, `eventemitter3`) with self-contained standard-library inline primitives (`externalDepCount === 0`).
+- **10-Package Zero-Dependency Micro-Shim Catalog**: Automatically replaces external imports (`lodash`, `uuid`, `axios`, `chalk`, `lru-cache`, `semver`, `crc-32`, `eventemitter3`, `base64`, `limiter`) with self-contained standard-library inline primitives (`externalDepCount === 0`).
+- **Auto-Polyfill Transpiler & Language Boundary Hardener**: Automatically transpiles external library call expressions into inline shims, consolidates Go package import headers into clean single blocks, deduplicates Python standard library fallbacks with `from __future__ import annotations`, and encapsulates Rust module namespaces (`pub mod zero_dep_shims`).
 - **Chameleon Style & Cross-Language Assimilation**: Profiles your workspace (`camelCase` vs `snake_case` vs `PascalCase`, `esm` vs `commonjs`, quotes, indentation, error handling) and synthesizes drop-in modules and Clean-Room Algorithmic Blueprints.
 - **1:1 Golden Parity Verification**: Executes empty, numeric boundary, Unicode/CJK, malformed, and deterministic seed Golden Vectors and emits a ready-to-run host unit test file (`vitest`, `pytest`, `cargo test`, or `go test`).
 - **Non-Destructive Workspace Patching**: Generates clean unified diff previews with automatic shim deduplication and supports `append`, `prepend`, and `smart-replace-symbol` strategies.
 - **Full MCP Protocol Compliance**: Implements MCP Tools, Resources, and Prompts (`surgical_slice_feature`, `audit_zero_dep_graft`, `explain_algorithmic_blueprint`).
+- **Interactive CLI Inspection & Deterministic Benchmark Suite**: Subcommands (`--catalog`, `--profile <dir>`, `--slice <query>`, `--bench`) delivering over 3,000 operations/sec with zero external dependencies.
+
+---
+
+## Interactive CLI Subcommands
+
+```bash
+# Print zero-dependency micro-shim catalog (TS, JS, Python, Rust, Go)
+node ./dist/index.js --catalog
+
+# Profile a target workspace directory conventions
+node ./dist/index.js --profile ./src
+
+# Surgically slice candidate entrypoints for a feature query
+node ./dist/index.js --slice "rate limiter" --source ./src
+
+# Execute 7-stage deterministic continuous performance benchmark
+node ./dist/index.js --bench
+
+# Machine-readable JSON output
+node ./dist/index.js --catalog --json
+```
 
 ---
 
@@ -87,7 +110,7 @@ npm test
 
 ## MCP Resources
 
-- `clonevibe://catalog/zero-dep-shims` — JSON catalog of 8 zero-dependency inline shims across TypeScript, JavaScript, Python, Rust, and Go.
+- `clonevibe://catalog/zero-dep-shims` — JSON catalog of 10 zero-dependency inline shims across TypeScript, JavaScript, Python, Rust, and Go (`lodash`, `uuid`, `axios`, `chalk`, `lru-cache`, `semver`, `crc-32`, `eventemitter3`, `base64`, `limiter`).
 - `clonevibe://guide/chameleon-workflow` — Markdown guide for executing the 7-stage surgical grafting & patch workflow.
 
 ---

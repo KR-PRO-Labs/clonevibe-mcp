@@ -34,11 +34,32 @@ flowchart LR
 
 1. **`ingest_reference`**: GitHub URL, 로컬 경로, 패키지 레지스트리 스펙(`npm:`, `pypi:`, `cargo:`), 인라인 파일 맵, 단일 줄 압축 JS 번들을 정규화하여 `ReferenceSnapshot`으로 인덱싱합니다.
 2. **`locate_feature_entrypoints`**: 자연어 기능 쿼리와 호출 그래프 중심성(Centrality)을 결합해 핵심 엔진 진입점 심볼을 랭킹합니다.
-3. **`slice_engine_graph`**: 진입점으로부터 BFS 전이적 클로저를 계산해 죽은 코드와 미사용 서드파티 임포트를 제거하고 인라인 마이크로 심을 매핑합니다.
+3. **`slice_engine_graph`**: 진입점으로부터 BFS 전이적 클로저를 계산해 죽은 코드와 미사용 서드파티 임포트를 제거하고 10대 인라인 마이크로 심을 매핑합니다.
 4. **`profile_target_vibe`**: 타깃 호스트 프로젝트의 언어(`TypeScript`, `JavaScript`, `Python`, `Rust`, `Go`), 모듈 시스템, 네이밍 규칙(`camelCase`, `snake_case`, `PascalCase`), 들여쓰기, 따옴표, 세미콜론, 에러 처리 관용구를 자동 프로파일링합니다.
-5. **`synthesize_chameleon_graft`**: 외부 런타임 의존성 0개(`externalDepCount === 0`)의 카멜레온 이식 모듈과 클린룸 알고리즘 블루프린트(Blueprint IR)를 합성합니다.
+5. **`synthesize_chameleon_graft`**: 외부 런타임 의존성 0개(`externalDepCount === 0`)의 카멜레온 이식 모듈과 클린룸 알고리즘 블루프린트(Blueprint IR)를 합성합니다. `AutoPolyfillTranspiler`가 호출 식 치환 및 Go 단일 import 블록, Python 표준 라이브러리 헤더 통합, Rust 모듈 캡슐화를 수행합니다.
 6. **`verify_engine_parity`**: 빈 입력, 경계값, 유니코드/한글/이모지, 비정상 페이로드, 결정론적 시드 등 5대 골든 벡터를 통해 1:1 동등성을 검증하고 즉시 실행 가능한 단위 테스트 스위트를 생성합니다.
 7. **`preview_graft_patch`**: 호스트 파일과의 중복 심(Shim) 자동 소거 및 심볼 교체/추가 전략을 통해 즉시 적용 가능한 유니파이드 디프(Unified Diff) 패치를 생성합니다.
+
+---
+
+## 대화형 CLI 서브커맨드 & 벤치마크
+
+```bash
+# 10대 무의존성 마이크로 심 카탈로그 확인
+node ./dist/index.js --catalog
+
+# 워크스페이스 컨벤션 프로파일링
+node ./dist/index.js --profile ./src
+
+# 기능 쿼리 기반 AST 진입점 및 슬라이싱 프리뷰
+node ./dist/index.js --slice "MultiSourceIngestor" --source ./src
+
+# 7단계 결정론적 고속 성능 벤치마크 실행 (초당 3,000+ 연산)
+node ./dist/index.js --bench
+
+# 기계 판독용 JSON 출력
+node ./dist/index.js --catalog --json
+```
 
 ---
 
@@ -50,7 +71,7 @@ flowchart LR
 
 ## MCP 리소스 (Resources)
 
-- `clonevibe://catalog/zero-dep-shims` — TypeScript, JavaScript, Python, Rust, Go 5개 언어 대상 8대 무의존성 인라인 마이크로 심 카탈로그 (`lodash`, `uuid`, `axios`, `chalk`, `lru-cache`, `semver`, `crc-32`, `eventemitter3`).
+- `clonevibe://catalog/zero-dep-shims` — TypeScript, JavaScript, Python, Rust, Go 5개 언어 대상 10대 무의존성 인라인 마이크로 심 카탈로그 (`lodash`, `uuid`, `axios`, `chalk`, `lru-cache`, `semver`, `crc-32`, `eventemitter3`, `base64`, `limiter`).
 - `clonevibe://guide/chameleon-workflow` — 7단계 외과적 이식 및 패치 가이드.
 
 ---

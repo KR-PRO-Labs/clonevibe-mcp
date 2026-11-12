@@ -383,7 +383,7 @@ export function createCloneVibeMcpServer(engine: CloneVibeEngine = new CloneVibe
         name: 'Zero-Dependency Micro-Shim Catalog',
         mimeType: 'application/json',
         description:
-          'Inline replacements for heavy third-party packages (lodash, uuid, axios, chalk, lru-cache, semver, crc-32, eventemitter3) across 5 languages.',
+          'Inline replacements for heavy third-party packages (lodash, uuid, axios, chalk, lru-cache, semver, crc-32, eventemitter3, base64, limiter) across 5 languages.',
       },
       {
         uri: 'clonevibe://guide/chameleon-workflow',

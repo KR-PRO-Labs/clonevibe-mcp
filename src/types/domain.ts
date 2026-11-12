@@ -164,3 +164,33 @@ export interface PreviewGraftPatchInput {
   integrationStrategy?: 'append' | 'prepend' | 'smart-replace-symbol';
 }
 
+export interface BenchmarkItemResult {
+  name: string;
+  operations: number;
+  durationMs: number;
+  opsPerSec: number;
+  throughputMbPerSec?: number;
+  status: 'passed' | 'failed';
+}
+
+export interface BenchmarkSuiteResult {
+  suiteName: string;
+  totalDurationMs: number;
+  totalOperations: number;
+  results: BenchmarkItemResult[];
+  environment: {
+    nodeVersion: string;
+    platform: string;
+    arch: string;
+    cpus: number;
+  };
+}
+
+export interface PolyfillTranspileOptions {
+  stripUnusedImports?: boolean;
+  consolidateImports?: boolean;
+  encapsulateRustMod?: boolean;
+  goPackageName?: string;
+}
+
+
